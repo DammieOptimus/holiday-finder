@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Public Holiday Finder - Dammie Optimus Solutions</title>
+    <style>
+        /* --- Reset & Base Styles --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            font-size: 16px; /* Base font size */
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        /* --- Container --- */
+        .container {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px; /* Max width for content */
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            opacity: 0; /* Start hidden for fade-in */
+            animation: fadeIn 0.8s ease-out forwards;
+            animation-delay: 0.2s; /* Slight delay for effect */
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* --- Header --- */
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 1.5rem;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            font-weight: 700; /* Bold business name */
+            color: #2c3e50; /* Darker blue */
+            margin-bottom: 0.5rem;
+        }
+
+        header h2 {
+            font-size: 1.5rem;
+            color: #3498db; /* Primary blue */
+            margin-bottom: 0.75rem;
+            font-weight: 500;
+        }
+
+        header p {
+            font-size: 1rem;
+            color: #555;
+            max-width: 600px;
+            margin: 0 auto; /* Center description */
+        }
+
+        /* --- Main Content --- */
+        main {
+            width: 100%;
+        }
+
+        /* Controls Section (Date & Country Pickers) */
+        .controls {
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+            gap: 1.5rem; /* Space between controls */
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            justify-content: center; /* Center items horizontally */
+            align-items: flex-end; /* Align items to the bottom */
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1; /* Allow groups to grow */
+            min-width: 200px; /* Minimum width before wrapping */
+        }
+
+        .control-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9rem;
+        }
+
+        .control-group input[type="date"],
+        .control-group select {
+            padding: 0.75rem 1rem;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 1rem;
+            background-color: #fff;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            appearance: none; /* Remove default styling */
+            -webkit-appearance: none;
+             cursor: pointer;
+        }
+         .control-group select {
+             /* Custom arrow for select */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23343a40'%3E%3Cpath fill-rule='evenodd' d='M8 11.5a.5.5 0 0 1-.354-.146l-4-4a.5.5 0 0 1 .708-.708L8 10.293l3.646-3.647a.5.5 0 0 1 .708.708l-4 4A.5.5 0 0 1 8 11.5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 16px 12px;
+            padding-right: 2.5rem; /* Make space for arrow */
+         }
+
+        .control-group input[type="date"]:focus,
+        .control-group select:focus {
+            border-color: #80bdff;
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+
+        /* Results Section */
+        .results {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .results h3 {
+            font-size: 1.3rem;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        #selected-info {
+            font-weight: 700;
+            color: #3498db;
+        }
+
+        /* Holiday List Container */
+        #holiday-list-container {
+            min-height: 100px; /* Prevent collapsing */
+            padding: 1rem;
+            border: 1px dashed #d6d8db;
+            border-radius: 8px;
+            background-color: #fdfdff;
+            position: relative; /* For absolute positioning of messages */
+            display: flex; /* Use flex to center messages */
+            justify-content: center;
+            align-items: center;
+            transition: border-color 0.3s ease; /* Smooth border color transition */
+        }
+
+        /* Messages (Loading, Error, No Holidays) */
+        #loading-message,
+        #error-message,
+        #no-holidays-message {
+            font-style: italic;
+            color: #6c757d;
+            font-size: 1rem;
+            position: absolute; /* Center inside container */
+            text-align: center;
+            padding: 1rem;
+            opacity: 0; /* Start hidden */
+            transition: opacity 0.3s ease; /* Fade messages */
+            pointer-events: none; /* Don't block interactions */
+        }
+
+        #loading-message.visible,
+        #error-message.visible,
+        #no-holidays-message.visible {
+            opacity: 1;
+        }
+
+        #error-message {
+            color: #dc3545; /* Red for errors */
+            font-weight: bold;
+        }
+
+        /* Holiday List */
+        #holiday-list {
+            list-style: none;
+            padding: 0;
+            width: 100%;
+            text-align: left; /* Align list items left */
+            opacity: 0; /* Start hidden for fade-in */
+            transition: opacity 0.5s ease-in-out;
+        }
+         #holiday-list.visible {
+            opacity: 1;
+         }
+
+
+        #holiday-list li {
+            background-color: #eef7ff; /* Light blue background */
+            padding: 1rem 1.5rem;
+            margin-bottom: 0.75rem;
+            border-radius: 6px;
+            border-left: 5px solid #3498db; /* Accent border */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        #holiday-list li:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        #holiday-list li span {
+            display: block; /* Ensure spans behave predictably */
+        }
+
+        #holiday-list li .holiday-local-name {
+            font-weight: 600;
+            color: #1a5276; /* Darker blue */
+        }
+
+        #holiday-list li .holiday-global-name {
+            font-size: 0.9rem;
+            color: #566573;
+        }
+        #holiday-list li .holiday-date {
+             font-size: 0.85rem;
+             color: #6c757d;
+             margin-left: 1rem;
+             white-space: nowrap; /* Prevent date wrapping */
+        }
+
+        /* --- Footer --- */
+        footer {
+            text-align: center;
+            margin-top: auto; /* Push footer to bottom */
+            padding: 1.5rem 1rem;
+            font-size: 0.9rem;
+            color: #6c757d;
+            width: 100%;
+            border-top: 1px solid #e0e0e0;
+            background-color: #f8f9fa; /* Light background for footer */
+        }
+
+        /* --- Responsiveness --- */
+        @media (max-width: 768px) {
+            html {
+                font-size: 15px; /* Slightly smaller base font */
+            }
+
+            .container {
+                padding: 1.5rem;
+                margin-top: 1rem;
+                margin-bottom: 1rem;
+            }
+
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            header h2 {
+                font-size: 1.3rem;
+            }
+
+            .controls {
+                flex-direction: column; /* Stack controls vertically */
+                align-items: stretch; /* Make controls full width */
+                gap: 1rem;
+                padding: 1rem;
+            }
+
+            .control-group {
+                min-width: unset; /* Remove min-width */
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            html {
+                font-size: 14px; /* Even smaller for mobile */
+            }
+            .container {
+                padding: 1rem;
+                 border-radius: 8px;
+            }
+             header h1 {
+                font-size: 1.6rem;
+            }
+
+            header h2 {
+                font-size: 1.2rem;
+            }
+            header p {
+                 font-size: 0.9rem;
+             }
+
+            #holiday-list li {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 0.8rem 1rem;
+            }
+             #holiday-list li .holiday-local-name {
+                 margin-bottom: 0.25rem;
+             }
+             #holiday-list li .holiday-date {
+                margin-left: 0;
+                margin-top: 0.3rem;
+                width: 100%;
+                text-align: right;
+             }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Dammie Optimus Solutions</h1>
+            <h2>Global Public Holiday Finder</h2>
+            <p>Instantly find public holidays for any date and country. Automatically shows today's holidays for your detected region (or Nigeria) upon loading.</p>
+        </header>
+
+        <main>
+            <section class="controls">
+                <div class="control-group">
+                    <label for="date-picker">Select Date:</label>
+                    <input type="date" id="date-picker">
+                </div>
+                <div class="control-group">
+                    <label for="country-select">Select Country:</label>
+                    <select id="country-select">
+                        <option value="">Loading countries...</option>
+                    </select>
+                </div>
+            </section>
+
+            <section class="results">
+                <h3>Public Holidays for <span id="selected-info">...</span></h3>
+                <div id="holiday-list-container">
+                    <p id="loading-message" style="display: block; opacity: 1;">Initializing...</p> <!-- Initializing message -->
+                    <p id="error-message">Could not fetch holiday data. Please try again.</p>
+                    <p id="no-holidays-message">No public holidays found for this date and country.</p>
+                    <ul id="holiday-list">
+                        <!-- Holiday items will be injected here by JS -->
+                    </ul>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer>
+        <p>All rights reserved © <span id="current-year"></span> Dammie Optimus Solutions</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const datePicker = document.getElementById('date-picker');
+            const countrySelect = document.getElementById('country-select');
+            const selectedInfo = document.getElementById('selected-info');
+            const holidayListContainer = document.getElementById('holiday-list-container');
+            const holidayList = document.getElementById('holiday-list');
+            const loadingMessage = document.getElementById('loading-message');
+            const errorMessage = document.getElementById('error-message');
+            const noHolidaysMessage = document.getElementById('no-holidays-message');
+            const currentYearSpan = document.getElementById('current-year');
+
+            // --- API Endpoints ---
+            const NAGER_API_BASE = 'https://date.nager.at/api/v3';
+            const IP_GEOLOCATION_API = 'https://ip-api.com/json/?fields=status,message,countryCode'; // More specific fields
+
+            // --- State ---
+            let availableCountries = [];
+            let currentSelectedDate = ''; // Store selected date 'YYYY-MM-DD'
+            let currentSelectedCountryCode = ''; // Store selected country code
+            let currentYear = new Date().getFullYear(); // Store the year for API calls
+
+            // --- Helper Functions ---
+
+            // Format date to YYYY-MM-DD
+            function formatDate(date) {
+                const d = new Date(date);
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const year = d.getFullYear();
+                return `${year}-${month}-${day}`;
+            }
+
+             // Show/Hide feedback messages
+             function showMessage(type, message = '') {
+                // Hide all messages first
+                loadingMessage.classList.remove('visible');
+                errorMessage.classList.remove('visible');
+                noHolidaysMessage.classList.remove('visible');
+                holidayList.classList.remove('visible'); // Hide list
+                holidayList.style.display = 'none'; // Ensure it's not taking space
+
+                // Set default border color
+                holidayListContainer.style.borderColor = '#d6d8db';
+
+                switch (type) {
+                    case 'loading':
+                        loadingMessage.textContent = message || 'Loading...';
+                        loadingMessage.classList.add('visible');
+                        break;
+                    case 'error':
+                        errorMessage.textContent = message || 'An error occurred.';
+                        errorMessage.classList.add('visible');
+                        holidayListContainer.style.borderColor = '#dc3545'; // Red border
+                        break;
+                    case 'no-holidays':
+                        noHolidaysMessage.textContent = message || 'No public holidays found.';
+                        noHolidaysMessage.classList.add('visible');
+                        holidayListContainer.style.borderColor = '#ffc107'; // Yellow border
+                        break;
+                    case 'holidays':
+                        // Only show list if there are items
+                        if (holidayList.children.length > 0) {
+                            holidayList.style.display = 'block';
+                            // Delay visibility slightly for fade-in effect
+                             setTimeout(() => holidayList.classList.add('visible'), 50);
+                        } else {
+                            // If called with 'holidays' but list is empty, show no-holidays msg
+                             showMessage('no-holidays', `No public holidays on ${currentSelectedDate} in ${getCountryName(currentSelectedCountryCode)}.`);
+                        }
+                        break;
+                    default:
+                        // Hide all if unknown type or clearing messages
+                        holidayListContainer.style.borderColor = '#d6d8db';
+                        break;
+                }
+            }
+
+            // Get country name from code
+            function getCountryName(code) {
+                const country = availableCountries.find(c => c.countryCode === code);
+                return country ? country.name : code; // Return name or code if not found
+            }
+
+
+            // --- API Fetching Functions ---
+
+             // Fetch user's country code via IP Geolocation
+             async function detectUserCountry() {
+                const fallbackCountryCode = 'NG'; // Default to Nigeria
+                try {
+                    const response = await fetch(IP_GEOLOCATION_API);
+                    if (!response.ok) {
+                        throw new Error(`Geolocation API error! Status: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    if (data.status === 'success' && data.countryCode) {
+                        console.log("Detected country:", data.countryCode);
+                        return data.countryCode;
+                    } else {
+                        throw new Error(data.message || 'Failed to get country code from IP.');
+                    }
+                } catch (error) {
+                    console.warn("Could not detect country via IP:", error.message, "Falling back to", fallbackCountryCode);
+                    return fallbackCountryCode; // Return fallback on any error
+                }
+            }
+
+            // Fetch available countries from Nager.Date
+            async function fetchCountries() {
+                try {
+                    const response = await fetch(`${NAGER_API_BASE}/AvailableCountries`);
+                    if (!response.ok) {
+                        throw new Error(`Nager Countries API error! Status: ${response.status}`);
+                    }
+                    availableCountries = await response.json();
+                    // Ensure availableCountries is an array before sorting/populating
+                    if (!Array.isArray(availableCountries)) {
+                         throw new Error("Nager Countries API did not return a valid array.");
+                    }
+                    availableCountries.sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
+                    populateCountrySelect();
+                } catch (error) {
+                    console.error("Error fetching countries:", error);
+                    countrySelect.innerHTML = '<option value="">Error loading countries</option>';
+                    showMessage('error', 'Could not load the list of countries.');
+                    // We cannot proceed without countries
+                }
+            }
+
+             // Populate country dropdown (called by fetchCountries)
+            function populateCountrySelect() {
+                countrySelect.innerHTML = '<option value="">Select a Country</option>'; // Clear previous
+                availableCountries.forEach(country => {
+                    const option = document.createElement('option');
+                    option.value = country.countryCode;
+                    option.textContent = country.name;
+                    countrySelect.appendChild(option);
+                });
+            }
+
+            // Fetch public holidays for a specific year and country
+            async function fetchHolidays(year, countryCode) {
+                if (!year || !countryCode) {
+                     showMessage('no-holidays', 'Please select both a date and a country.');
+                     updateSelectedInfo(); // Update header even if no fetch
+                     return;
+                }
+                 showMessage('loading', `Loading holidays for ${getCountryName(countryCode)} in ${year}...`);
+                holidayList.innerHTML = ''; // Clear previous results immediately
+
+                try {
+                    const response = await fetch(`${NAGER_API_BASE}/PublicHolidays/${year}/${countryCode}`);
+                     if (!response.ok) {
+                        if (response.status === 404) throw new Error(`No holiday data available for ${getCountryName(countryCode)} in ${year}.`);
+                        if (response.status === 400) throw new Error(`Invalid request for ${countryCode}/${year}.`);
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                     }
+                     const holidays = await response.json();
+                     // Ensure holidays is an array before proceeding
+                    if (!Array.isArray(holidays)) {
+                        console.warn("Received non-array response for holidays:", holidays);
+                        throw new Error(`Unexpected data format received for holidays.`);
+                     }
+                     displayHolidays(holidays);
+                } catch (error) {
+                    console.error("Error fetching holidays:", error);
+                    showMessage('error', `Failed to fetch holidays: ${error.message}`);
+                     updateSelectedInfo(); // Still update the header part
+                }
+            }
+
+             // Display fetched holidays filtered by the selected date
+            function displayHolidays(allHolidays) {
+                 // Filter holidays for the exact selected date
+                 // Ensure currentSelectedDate is in 'YYYY-MM-DD' format for comparison
+                const todaysHolidays = allHolidays.filter(holiday => holiday.date === currentSelectedDate);
+
+                holidayList.innerHTML = ''; // Clear list again
+
+                if (todaysHolidays.length === 0) {
+                    // Show 'no holidays' message, using the specific date/country
+                     showMessage('no-holidays', `No public holidays on ${currentSelectedDate} in ${getCountryName(currentSelectedCountryCode)}.`);
+                } else {
+                    todaysHolidays.forEach(holiday => {
+                        const li = document.createElement('li');
+                        // Ensure names exist, provide fallback if null/undefined
+                        const localName = holiday.localName || 'N/A';
+                        const globalName = holiday.name || 'N/A';
+                        const type = holiday.type || 'Unknown';
+
+                        li.innerHTML = `
+                            <div>
+                                <span class="holiday-local-name">${localName}</span>
+                                <span class="holiday-global-name">${globalName} (${type})</span>
+                            </div>
+                            <span class="holiday-date">${holiday.date}</span>
+                        `;
+                        holidayList.appendChild(li);
+                    });
+                     showMessage('holidays'); // Show the list with fade-in
+                }
+                 updateSelectedInfo(); // Update the H3 title
+            }
+
+             // Update the H3 heading above the results
+            function updateSelectedInfo() {
+                 const countryName = getCountryName(currentSelectedCountryCode);
+                 const dateStr = currentSelectedDate || 'the selected date';
+                 selectedInfo.textContent = `${dateStr} in ${countryName || 'selected country'}`;
+            }
+
+
+            // --- Event Handlers ---
+
+            function handleSelectionChange() {
+                const selectedDate = datePicker.value; // Already YYYY-MM-DD
+                const selectedCountryCode = countrySelect.value;
+                const selectedYear = selectedDate ? new Date(selectedDate).getFullYear() : null; // Get year from date picker
+
+                // Basic validation
+                if (!selectedDate || !selectedCountryCode) {
+                     showMessage('no-holidays', 'Please select both a date and a country.');
+                     // Update state partially if needed
+                     currentSelectedDate = selectedDate || currentSelectedDate;
+                     currentSelectedCountryCode = selectedCountryCode || currentSelectedCountryCode;
+                     updateSelectedInfo();
+                     return; // Don't fetch if incomplete
+                 }
+
+                // Check if relevant data actually changed
+                const yearChanged = selectedYear !== currentYear;
+                const dateChanged = selectedDate !== currentSelectedDate;
+                const countryChanged = selectedCountryCode !== currentSelectedCountryCode;
+
+                if (dateChanged || countryChanged) { // Fetch if date or country changes
+                     currentSelectedDate = selectedDate;
+                     currentSelectedCountryCode = selectedCountryCode;
+
+                     // Always update the current year based on the *newly selected date*
+                     if(selectedYear){
+                         currentYear = selectedYear;
+                         fetchHolidays(currentYear, currentSelectedCountryCode);
+                     } else {
+                         // Handle case where date might be invalid briefly
+                         showMessage('error', 'Invalid date selected.');
+                         updateSelectedInfo();
+                     }
+
+                 } else {
+                     // If only the year part of the date changed but not the full date string
+                     // (e.g., user edits year field directly if possible, though standard date pickers prevent this)
+                     // or if nothing changed, update info but don't refetch unnecessarily.
+                     updateSelectedInfo();
+                 }
+            }
+
+
+            // --- Initialization ---
+            async function initializeApp() {
+                // 1. Set basics immediately
+                currentYearSpan.textContent = new Date().getFullYear();
+                const today = new Date();
+                datePicker.value = formatDate(today);
+                currentSelectedDate = datePicker.value; // Set initial state date
+                currentYear = today.getFullYear(); // Set initial year state
+
+                // 2. Attempt country detection (async)
+                const detectedCountryCode = await detectUserCountry(); // Returns detected or 'NG'
+
+                // 3. Fetch the list of available countries (async)
+                await fetchCountries(); // Populates dropdown and availableCountries array
+
+                // 4. Set the initial country in the dropdown
+                // Check if the detected/fallback country is actually in the Nager list
+                if (availableCountries.some(c => c.countryCode === detectedCountryCode)) {
+                    countrySelect.value = detectedCountryCode;
+                } else if (availableCountries.some(c => c.countryCode === 'NG')) {
+                    // If detected not found, explicitly try Nigeria
+                    console.warn(`Detected country ${detectedCountryCode} not in Nager API list, defaulting to NG.`);
+                    countrySelect.value = 'NG';
+                } else if (availableCountries.length > 0) {
+                    // If even NG is not available (very unlikely), pick the first available country
+                    console.warn(`Neither detected country nor NG found in Nager API list, selecting first available.`);
+                    countrySelect.value = availableCountries[0].countryCode;
+                } else {
+                    // No countries loaded at all (error handled in fetchCountries)
+                    console.error("Cannot set initial country, list is empty.");
+                    showMessage('error', 'Failed to initialize country selection.');
+                    return; // Stop initialization if countries failed
+                }
+
+                // 5. Update state *after* setting the select value
+                currentSelectedCountryCode = countrySelect.value;
+
+                // 6. Add event listeners (do this before initial fetch in case user interacts quickly)
+                datePicker.addEventListener('change', handleSelectionChange);
+                countrySelect.addEventListener('change', handleSelectionChange);
+
+                // 7. Perform the initial holiday fetch *after* date and country are set
+                if (currentSelectedDate && currentSelectedCountryCode) {
+                    fetchHolidays(currentYear, currentSelectedCountryCode);
+                } else {
+                    // Should not happen if initialization worked, but good failsafe
+                    showMessage('no-holidays', 'Select date and country to begin.');
+                     updateSelectedInfo(); // Update header text
+                }
+            }
+
+            // --- Run Initialization ---
+            initializeApp();
+
+        });
+    </script>
+
+</body>
+</html>
