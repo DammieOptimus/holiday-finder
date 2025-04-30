@@ -372,7 +372,7 @@
         <p>All rights reserved © <span id="current-year"></span> Dammie Optimus Solutions</p>
     </footer>
 
-    <script>
+        <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- DOM Elements ---
             const datePicker = document.getElementById('date-picker');
@@ -387,17 +387,17 @@
 
             // --- API Endpoints ---
             const NAGER_API_BASE = 'https://date.nager.at/api/v3';
-            const IP_GEOLOCATION_API = 'https://ip-api.com/json/?fields=status,message,countryCode'; // More specific fields
+            const IP_GEOLOCATION_API = 'https://ip-api.com/json/?fields=status,message,countryCode';
 
             // --- State ---
             let availableCountries = [];
-            let currentSelectedDate = ''; // Store selected date 'YYYY-MM-DD'
-            let currentSelectedCountryCode = ''; // Store selected country code
-            let currentYear = new Date().getFullYear(); // Store the year for API calls
+            let currentSelectedDate = '';
+            let currentSelectedCountryCode = '';
+            let currentYear = new Date().getFullYear();
+            let isInitializing = true; // <<<--- ADD THIS FLAG
 
             // --- Helper Functions ---
 
-            // Format date to YYYY-MM-DD
             function formatDate(date) {
                 const d = new Date(date);
                 const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -406,17 +406,14 @@
                 return `${year}-${month}-${day}`;
             }
 
-             // Show/Hide feedback messages
              function showMessage(type, message = '') {
-                // Hide all messages first
                 loadingMessage.classList.remove('visible');
                 errorMessage.classList.remove('visible');
                 noHolidaysMessage.classList.remove('visible');
-                holidayList.classList.remove('visible'); // Hide list
-                holidayList.style.display = 'none'; // Ensure it's not taking space
+                holidayList.classList.remove('visible');
+                holidayList.style.display = 'none';
 
-                // Set default border color
-                holidayListContainer.style.borderColor = '#d6d8db';
+                holidayListContainer.style.borderColor = '#d6d8db'; // Reset border
 
                 switch (type) {
                     case 'loading':
@@ -426,45 +423,48 @@
                     case 'error':
                         errorMessage.textContent = message || 'An error occurred.';
                         errorMessage.classList.add('visible');
-                        holidayListContainer.style.borderColor = '#dc3545'; // Red border
+                        holidayListContainer.style.borderColor = '#dc3545';
                         break;
                     case 'no-holidays':
                         noHolidaysMessage.textContent = message || 'No public holidays found.';
                         noHolidaysMessage.classList.add('visible');
-                        holidayListContainer.style.borderColor = '#ffc107'; // Yellow border
+                        holidayListContainer.style.borderColor = '#ffc107';
                         break;
                     case 'holidays':
-                        // Only show list if there are items
-                        if (holidayList.children.length > 0) {
+                        // Ensure the list is actually populated before showing it
+                         if (holidayList.children.length > 0) {
                             holidayList.style.display = 'block';
-                            // Delay visibility slightly for fade-in effect
-                             setTimeout(() => holidayList.classList.add('visible'), 50);
+                            setTimeout(() => holidayList.classList.add('visible'), 10); // Shorter delay might be fine
                         } else {
-                            // If called with 'holidays' but list is empty, show no-holidays msg
-                             showMessage('no-holidays', `No public holidays on ${currentSelectedDate} in ${getCountryName(currentSelectedCountryCode)}.`);
-                        }
+                             // Fallback if called with 'holidays' but list is empty
+                             // This check might be redundant if displayHolidays handles it, but safe
+                            showMessage('no-holidays', `No public holidays on ${currentSelectedDate} in ${getCountryName(currentSelectedCountryCode)}.`);
+                         }
                         break;
                     default:
-                        // Hide all if unknown type or clearing messages
-                        holidayListContainer.style.borderColor = '#d6d8db';
+                         // Hide all messages if type is unknown or null
                         break;
                 }
             }
 
-            // Get country name from code
             function getCountryName(code) {
                 const country = availableCountries.find(c => c.countryCode === code);
-                return country ? country.name : code; // Return name or code if not found
+                return country ? country.name : code;
             }
 
 
             // --- API Fetching Functions ---
 
-             // Fetch user's country code via IP Geolocation
              async function detectUserCountry() {
-                const fallbackCountryCode = 'NG'; // Default to Nigeria
+                const fallbackCountryCode = 'NG';
                 try {
-                    const response = await fetch(IP_GEOLOCATION_API);
+                    // Added timeout to prevent indefinite hang
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+                    const response = await fetch(IP_GEOLOCATION_API, { signal: controller.signal });
+                    clearTimeout(timeoutId); // Clear timeout if fetch completes
+
                     if (!response.ok) {
                         throw new Error(`Geolocation API error! Status: ${response.status}`);
                     }
@@ -476,53 +476,74 @@
                         throw new Error(data.message || 'Failed to get country code from IP.');
                     }
                 } catch (error) {
-                    console.warn("Could not detect country via IP:", error.message, "Falling back to", fallbackCountryCode);
-                    return fallbackCountryCode; // Return fallback on any error
+                     if (error.name === 'AbortError') {
+                        console.warn("Geolocation request timed out. Falling back to", fallbackCountryCode);
+                    } else {
+                         console.warn("Could not detect country via IP:", error.message, "Falling back to", fallbackCountryCode);
+                    }
+                    return fallbackCountryCode;
                 }
             }
 
-            // Fetch available countries from Nager.Date
             async function fetchCountries() {
                 try {
                     const response = await fetch(`${NAGER_API_BASE}/AvailableCountries`);
                     if (!response.ok) {
                         throw new Error(`Nager Countries API error! Status: ${response.status}`);
                     }
-                    availableCountries = await response.json();
-                    // Ensure availableCountries is an array before sorting/populating
-                    if (!Array.isArray(availableCountries)) {
+                    const data = await response.json(); // Get data first
+                     // Validate data structure
+                    if (!Array.isArray(data)) {
                          throw new Error("Nager Countries API did not return a valid array.");
                     }
-                    availableCountries.sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically
+                    availableCountries = data; // Assign if valid
+                    availableCountries.sort((a, b) => a.name.localeCompare(b.name));
                     populateCountrySelect();
+                    return true; // Indicate success
                 } catch (error) {
                     console.error("Error fetching countries:", error);
                     countrySelect.innerHTML = '<option value="">Error loading countries</option>';
-                    showMessage('error', 'Could not load the list of countries.');
-                    // We cannot proceed without countries
+                    showMessage('error', 'Could not load the list of countries. Please refresh.');
+                    return false; // Indicate failure
                 }
             }
 
-             // Populate country dropdown (called by fetchCountries)
             function populateCountrySelect() {
-                countrySelect.innerHTML = '<option value="">Select a Country</option>'; // Clear previous
+                countrySelect.innerHTML = ''; // Clear previous (e.g., "Loading...")
+                // Add a default placeholder option
+                 const placeholderOption = document.createElement('option');
+                placeholderOption.value = "";
+                placeholderOption.textContent = "Select a Country";
+                placeholderOption.disabled = true; // Make it non-selectable if needed initially
+                countrySelect.appendChild(placeholderOption);
+
+
                 availableCountries.forEach(country => {
                     const option = document.createElement('option');
                     option.value = country.countryCode;
                     option.textContent = country.name;
                     countrySelect.appendChild(option);
                 });
+                 // Make placeholder selectable again after list is populated if it was disabled
+                 placeholderOption.disabled = false;
             }
 
-            // Fetch public holidays for a specific year and country
             async function fetchHolidays(year, countryCode) {
+                // Guard clause: Do not fetch if initialization is still running and triggered this
+                // This specific check might be redundant now with the check in handleSelectionChange,
+                // but doesn't hurt as defense-in-depth.
+                 // if (isInitializing) {
+                 //    console.log("Fetch skipped during init");
+                 //    return;
+                 // }
+
                 if (!year || !countryCode) {
-                     showMessage('no-holidays', 'Please select both a date and a country.');
-                     updateSelectedInfo(); // Update header even if no fetch
+                     showMessage('no-holidays', 'Please select both a valid date and a country.');
+                     updateSelectedInfo();
                      return;
                 }
                  showMessage('loading', `Loading holidays for ${getCountryName(countryCode)} in ${year}...`);
-                holidayList.innerHTML = ''; // Clear previous results immediately
+                holidayList.innerHTML = ''; // Clear previous results
 
                 try {
                     const response = await fetch(`${NAGER_API_BASE}/PublicHolidays/${year}/${countryCode}`);
@@ -532,34 +553,27 @@
                         throw new Error(`HTTP error! status: ${response.status}`);
                      }
                      const holidays = await response.json();
-                     // Ensure holidays is an array before proceeding
                     if (!Array.isArray(holidays)) {
                         console.warn("Received non-array response for holidays:", holidays);
                         throw new Error(`Unexpected data format received for holidays.`);
                      }
-                     displayHolidays(holidays);
+                     displayHolidays(holidays); // Pass data to display function
                 } catch (error) {
                     console.error("Error fetching holidays:", error);
                     showMessage('error', `Failed to fetch holidays: ${error.message}`);
-                     updateSelectedInfo(); // Still update the header part
+                    updateSelectedInfo(); // Still update header
                 }
             }
 
-             // Display fetched holidays filtered by the selected date
             function displayHolidays(allHolidays) {
-                 // Filter holidays for the exact selected date
-                 // Ensure currentSelectedDate is in 'YYYY-MM-DD' format for comparison
                 const todaysHolidays = allHolidays.filter(holiday => holiday.date === currentSelectedDate);
-
-                holidayList.innerHTML = ''; // Clear list again
+                holidayList.innerHTML = ''; // Clear list before adding new items
 
                 if (todaysHolidays.length === 0) {
-                    // Show 'no holidays' message, using the specific date/country
                      showMessage('no-holidays', `No public holidays on ${currentSelectedDate} in ${getCountryName(currentSelectedCountryCode)}.`);
                 } else {
                     todaysHolidays.forEach(holiday => {
                         const li = document.createElement('li');
-                        // Ensure names exist, provide fallback if null/undefined
                         const localName = holiday.localName || 'N/A';
                         const globalName = holiday.name || 'N/A';
                         const type = holiday.type || 'Unknown';
@@ -573,12 +587,12 @@
                         `;
                         holidayList.appendChild(li);
                     });
-                     showMessage('holidays'); // Show the list with fade-in
+                     // IMPORTANT: Call showMessage *after* list is populated
+                     showMessage('holidays');
                 }
-                 updateSelectedInfo(); // Update the H3 title
+                 updateSelectedInfo(); // Update H3 title regardless
             }
 
-             // Update the H3 heading above the results
             function updateSelectedInfo() {
                  const countryName = getCountryName(currentSelectedCountryCode);
                  const dateStr = currentSelectedDate || 'the selected date';
@@ -589,97 +603,114 @@
             // --- Event Handlers ---
 
             function handleSelectionChange() {
-                const selectedDate = datePicker.value; // Already YYYY-MM-DD
-                const selectedCountryCode = countrySelect.value;
-                const selectedYear = selectedDate ? new Date(selectedDate).getFullYear() : null; // Get year from date picker
+                 // <<<--- ADD THIS CHECK
+                if (isInitializing) {
+                    console.log("Change event ignored during initialization.");
+                    return;
+                }
+                console.log("Handling selection change..."); // For debugging
 
-                // Basic validation
+                const selectedDate = datePicker.value;
+                const selectedCountryCode = countrySelect.value;
+                const selectedYear = selectedDate ? new Date(selectedDate).getFullYear() : null;
+
                 if (!selectedDate || !selectedCountryCode) {
                      showMessage('no-holidays', 'Please select both a date and a country.');
-                     // Update state partially if needed
                      currentSelectedDate = selectedDate || currentSelectedDate;
                      currentSelectedCountryCode = selectedCountryCode || currentSelectedCountryCode;
                      updateSelectedInfo();
-                     return; // Don't fetch if incomplete
+                     return;
                  }
 
-                // Check if relevant data actually changed
-                const yearChanged = selectedYear !== currentYear;
+                // Determine if a fetch is needed
                 const dateChanged = selectedDate !== currentSelectedDate;
                 const countryChanged = selectedCountryCode !== currentSelectedCountryCode;
 
-                if (dateChanged || countryChanged) { // Fetch if date or country changes
-                     currentSelectedDate = selectedDate;
-                     currentSelectedCountryCode = selectedCountryCode;
+                // Update state regardless of fetch need
+                currentSelectedDate = selectedDate;
+                currentSelectedCountryCode = selectedCountryCode;
 
-                     // Always update the current year based on the *newly selected date*
-                     if(selectedYear){
-                         currentYear = selectedYear;
-                         fetchHolidays(currentYear, currentSelectedCountryCode);
-                     } else {
-                         // Handle case where date might be invalid briefly
-                         showMessage('error', 'Invalid date selected.');
-                         updateSelectedInfo();
-                     }
-
+                 if (selectedYear && (dateChanged || countryChanged)) {
+                    currentYear = selectedYear;
+                    fetchHolidays(currentYear, currentSelectedCountryCode);
+                 } else if (!selectedYear){
+                     // Handle potentially invalid date selection if year extraction fails
+                     showMessage('error', 'Invalid date selected.');
+                     updateSelectedInfo(); // Still update header
                  } else {
-                     // If only the year part of the date changed but not the full date string
-                     // (e.g., user edits year field directly if possible, though standard date pickers prevent this)
-                     // or if nothing changed, update info but don't refetch unnecessarily.
-                     updateSelectedInfo();
+                    // If only year changed implicitly (unlikely with standard picker)
+                    // or nothing changed, just update the info display
+                    updateSelectedInfo();
                  }
             }
 
 
             // --- Initialization ---
             async function initializeApp() {
-                // 1. Set basics immediately
+                isInitializing = true; // Ensure flag is set at the start
+                console.log("Initializing app...");
+
                 currentYearSpan.textContent = new Date().getFullYear();
                 const today = new Date();
                 datePicker.value = formatDate(today);
-                currentSelectedDate = datePicker.value; // Set initial state date
-                currentYear = today.getFullYear(); // Set initial year state
+                currentSelectedDate = datePicker.value;
+                currentYear = today.getFullYear();
 
-                // 2. Attempt country detection (async)
-                const detectedCountryCode = await detectUserCountry(); // Returns detected or 'NG'
+                // Show initial loading message clearly
+                showMessage('loading', 'Detecting country & loading data...');
 
-                // 3. Fetch the list of available countries (async)
-                await fetchCountries(); // Populates dropdown and availableCountries array
+                const detectedCountryCode = await detectUserCountry();
+                const countriesLoaded = await fetchCountries(); // Returns true/false
 
-                // 4. Set the initial country in the dropdown
-                // Check if the detected/fallback country is actually in the Nager list
-                if (availableCountries.some(c => c.countryCode === detectedCountryCode)) {
-                    countrySelect.value = detectedCountryCode;
-                } else if (availableCountries.some(c => c.countryCode === 'NG')) {
-                    // If detected not found, explicitly try Nigeria
-                    console.warn(`Detected country ${detectedCountryCode} not in Nager API list, defaulting to NG.`);
-                    countrySelect.value = 'NG';
-                } else if (availableCountries.length > 0) {
-                    // If even NG is not available (very unlikely), pick the first available country
-                    console.warn(`Neither detected country nor NG found in Nager API list, selecting first available.`);
-                    countrySelect.value = availableCountries[0].countryCode;
-                } else {
-                    // No countries loaded at all (error handled in fetchCountries)
-                    console.error("Cannot set initial country, list is empty.");
-                    showMessage('error', 'Failed to initialize country selection.');
-                    return; // Stop initialization if countries failed
+                if (!countriesLoaded) {
+                    isInitializing = false; // Stop if countries failed
+                    console.log("Initialization halted: Countries failed to load.");
+                    return;
                 }
 
-                // 5. Update state *after* setting the select value
-                currentSelectedCountryCode = countrySelect.value;
+                // Set initial country AFTER countries are populated
+                let initialCountrySet = false;
+                if (availableCountries.some(c => c.countryCode === detectedCountryCode)) {
+                    countrySelect.value = detectedCountryCode;
+                    initialCountrySet = true;
+                } else if (availableCountries.some(c => c.countryCode === 'NG')) {
+                    console.warn(`Detected country ${detectedCountryCode} not in Nager API list or detection failed, defaulting to NG.`);
+                    countrySelect.value = 'NG';
+                     initialCountrySet = true;
+                } else if (availableCountries.length > 0 && countrySelect.options.length > 1) { // Ensure there are selectable options besides placeholder
+                     console.warn(`Neither detected country nor NG found/available, selecting first available country.`);
+                    // Select the first *actual* country option (index 1, after placeholder)
+                     countrySelect.value = countrySelect.options[1].value;
+                     initialCountrySet = true;
+                } else {
+                    console.error("Cannot set initial country - list empty or only placeholder exists.");
+                     showMessage('error', 'Failed to set an initial country.');
+                     // Leave placeholder selected if possible
+                     countrySelect.value = "";
+                 }
 
-                // 6. Add event listeners (do this before initial fetch in case user interacts quickly)
+                currentSelectedCountryCode = countrySelect.value; // Update state based on final selection
+
+                 // Add event listeners *after* initial values are set
                 datePicker.addEventListener('change', handleSelectionChange);
                 countrySelect.addEventListener('change', handleSelectionChange);
 
-                // 7. Perform the initial holiday fetch *after* date and country are set
-                if (currentSelectedDate && currentSelectedCountryCode) {
-                    fetchHolidays(currentYear, currentSelectedCountryCode);
-                } else {
-                    // Should not happen if initialization worked, but good failsafe
-                    showMessage('no-holidays', 'Select date and country to begin.');
-                     updateSelectedInfo(); // Update header text
-                }
+
+                // Perform the initial holiday fetch only if country was set
+                if (initialCountrySet && currentSelectedDate && currentSelectedCountryCode) {
+                     await fetchHolidays(currentYear, currentSelectedCountryCode); // Wait for initial fetch
+                } else if (!initialCountrySet){
+                     // If no country could be set, show appropriate message
+                     updateSelectedInfo(); // Update header text (will show 'selected country')
+                     showMessage('no-holidays', 'Please select a country to begin.');
+                 } else {
+                     // Should not happen if logic above is correct, but good failsafe
+                     updateSelectedInfo();
+                     showMessage('no-holidays', 'Could not load initial data. Select date and country.');
+                 }
+
+                console.log("Initialization complete.");
+                isInitializing = false; // <<<--- SET FLAG TO FALSE AT THE END
             }
 
             // --- Run Initialization ---
