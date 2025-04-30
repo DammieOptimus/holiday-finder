@@ -406,7 +406,7 @@
                 return `${year}-${month}-${day}`;
             }
 
-                        function showMessage(type, message = '') {
+            function showMessage(type, message = '') {
                 // --- Reset Step ---
                 // 1. Hide all potentially visible elements completely (layout and visibility)
                 loadingMessage.style.display = 'none';
@@ -568,7 +568,7 @@
                  }
 
                 console.log(`Fetching holidays for ${countryCode} in ${year}...`);
-                //showMessage('loading', `Loading holidays for ${getCountryName(countryCode)} in ${year}...`);
+                showMessage('loading', `Loading holidays for ${getCountryName(countryCode)} in ${year}...`);
                 holidayList.innerHTML = ''; // Clear previous results visually faster
 
                 try {
@@ -705,7 +705,7 @@
                 currentYear = today.getFullYear(); // Set initial year state
 
                 // 2. Show initial loading message
-                //showMessage('loading', 'Detecting country & loading data...');
+                showMessage('loading', 'Detecting country & loading data...');
 
                 // 3. Perform initial setup tasks (country detection, loading list)
                 const detectedCountryCode = await detectUserCountry();
