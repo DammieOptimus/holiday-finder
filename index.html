@@ -358,7 +358,7 @@
                 <h3>Public Holidays for <span id="selected-info">...</span></h3>
                 <div id="holiday-list-container">
                     <p id="loading-message" style="display: block; opacity: 1;">Initializing...</p> <!-- Initializing message -->
-                    <p id="error-message">Could not fetch holiday data. Please try again.</p>
+                    <p id="error-message">Could not fetch holiday data! Please try again.</p>
                     <p id="no-holidays-message">No public holidays found for this date and country.</p>
                     <ul id="holiday-list">
                         <!-- Holiday items will be injected here by JS -->
@@ -372,7 +372,7 @@
         <p>All rights reserved © <span id="current-year"></span> Dammie Optimus Solutions</p>
     </footer>
 
-        <script>
+    <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- DOM Elements ---
             const datePicker = document.getElementById('date-picker');
