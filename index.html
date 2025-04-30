@@ -406,18 +406,28 @@
                 return `${year}-${month}-${day}`;
             }
 
-             function showMessage(type, message = '') {
-                // Hide all messages efficiently
+                        function showMessage(type, message = '') {
+                // --- Reset Step ---
+                // 1. Hide all potentially visible elements completely (layout and visibility)
+                loadingMessage.style.display = 'none';
+                errorMessage.style.display = 'none';
+                noHolidaysMessage.style.display = 'none';
+                holidayList.style.display = 'none'; // Also hide list layout initially
+
+                // 2. Remove 'visible' class (for opacity transition) from all
                 loadingMessage.classList.remove('visible');
                 errorMessage.classList.remove('visible');
                 noHolidaysMessage.classList.remove('visible');
                 holidayList.classList.remove('visible');
-                holidayList.style.display = 'none'; // Ensure it collapses
 
-                // Reset border color
-                holidayListContainer.style.borderColor = '#d6d8db';
+                // 3. Reset container border color
+                holidayListContainer.style.borderColor = '#d6d8db'; // Dashed border default
 
+                // --- Activation Step ---
+                // Now, activate the *one* element that should be shown
                 let targetElement;
+                let displayType = 'block'; // Default display for messages
+
                 switch (type) {
                     case 'loading':
                         targetElement = loadingMessage;
@@ -426,35 +436,45 @@
                     case 'error':
                         targetElement = errorMessage;
                         message = message || 'An error occurred.';
-                        holidayListContainer.style.borderColor = '#dc3545';
+                        holidayListContainer.style.borderColor = '#dc3545'; // Red border
                         break;
                     case 'no-holidays':
                         targetElement = noHolidaysMessage;
                         message = message || 'No public holidays found.';
-                        holidayListContainer.style.borderColor = '#ffc107';
+                        holidayListContainer.style.borderColor = '#ffc107'; // Yellow border
                         break;
                     case 'holidays':
+                        // Special case for the list
                         if (holidayList.children.length > 0) {
-                            holidayList.style.display = 'block';
-                            // Use requestAnimationFrame for smoother visual update potentially
+                            // Set display and add class for transition
+                            holidayList.style.display = 'block'; // Or 'flex' if needed later
+                             // Use rAF or timeout for smooth transition start
                             requestAnimationFrame(() => {
-                                holidayList.classList.add('visible')
+                                holidayList.classList.add('visible');
                             });
                         } else {
-                            // If called with 'holidays' but list is empty, show appropriate message
-                             showMessage('no-holidays', `No public holidays on ${currentSelectedDate} in ${getCountryName(currentSelectedCountryCode)}.`);
+                            // If list is empty, revert to 'no-holidays' state internally
+                            console.warn("showMessage('holidays') called but list is empty. Showing 'no-holidays' message instead.");
+                            // Recursively call to show the correct message
+                            showMessage('no-holidays', `No public holidays on ${currentSelectedDate} in ${getCountryName(currentSelectedCountryCode)}.`);
                         }
-                        // No specific text element to show for 'holidays', just the list
-                        return; // Exit function early for 'holidays' type
+                        // Exit function early for 'holidays' type as targetElement logic doesn't apply directly
+                        return;
                     default:
-                        // Hide all if unknown type or clearing messages
-                        return; // Exit function
+                        // If unknown type, do nothing, everything remains hidden from reset step
+                        console.warn(`Unknown message type: ${type}`);
+                        return;
                 }
 
-                // Set text and show the target message element
+                // --- Apply to Target Message Element ---
                 if (targetElement) {
                     targetElement.textContent = message;
-                    targetElement.classList.add('visible');
+                    // Set display before adding class for transition
+                    targetElement.style.display = displayType;
+                    // Use rAF or timeout for smooth transition start
+                    requestAnimationFrame(() => {
+                         targetElement.classList.add('visible');
+                    });
                 }
             }
 
